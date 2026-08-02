@@ -68,12 +68,30 @@ def get_stock_data(ticker):
         logger.error(f"Error fetching {ticker}: {e}")
         return None
 
+def get_stock_news(ticker):
+    try:
+        stock = yf.Ticker(ticker)
+        news_list = stock.news
+        if news_list and len(news_list) > 0:
+            latest = news_list[0]
+            title = latest.get('title') or latest.get('content', {}).get('title', 'სიახლე არ მოიძებნა')
+            link = ""
+            if 'link' in latest:
+                link = latest['link']
+            elif 'content' in latest and 'clickThroughUrl' in latest['content']:
+                link = latest['content']['clickThroughUrl'].get('url', '')
+            return {"title": title, "link": link}
+    except Exception as e:
+        logger.error(f"Error fetching news for {ticker}: {e}")
+    return None
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         await update.message.reply_text(
             "🏛 **Mamuka AI Hedge Fund Bot აქტიურია!**\n\n"
             "ბრძანებები:\n"
             "• `/analyze` - სრული საბაზრო ანალიტიკა\n"
+            "• `/news` - უახლესი საბაზრო სიახლეები\n"
             "• `/status` - სისტემის შემოწმება"
         )
     except Exception as e:
@@ -124,6 +142,27 @@ async def analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Analyze error: {e}")
         await update.message.reply_text(f"⚠️ შეცდომა ანალიზის დროს: {str(e)}")
 
+async def news(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        await update.message.reply_text("⏳ მიმდინარეობს უახლესი საბაზრო სიახლეების ძებნა...")
+        
+        key_tickers = ["NVDA", "PLTR", "IBM", "MSFT", "RKLB"]
+        text = "📰 **KEY MARKET & TECH NEWS**\n----------------------------------"
+        
+        for ticker in key_tickers:
+            news_item = get_stock_news(ticker)
+            if news_item:
+                if news_item['link']:
+                    text += f"\n\n▪ **{ticker}**\n🔗 [{news_item['title']}]({news_item['link']})"
+                else:
+                    text += f"\n\n▪ **{ticker}**\n📌 {news_item['title']}"
+                    
+        await update.message.reply_text(text, parse_mode="Markdown", disable_web_page_preview=True)
+        
+    except Exception as e:
+        logger.error(f"News error: {e}")
+        await update.message.reply_text(f"⚠️ შეცდომა სიახლეების წამოღების დროს: {str(e)}")
+
 # ვქმნით პატარა Flask სერვერს Render-ისთვის
 app_web = Flask(__name__)
 
@@ -144,6 +183,7 @@ if __name__ == "__main__":
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("status", status))
     application.add_handler(CommandHandler("analyze", analyze))
+    application.add_handler(CommandHandler("news", news))
     
     # ვრთავთ Flask სერვერს ცალკე ნაკადში, რომ Render-მა პორტი დაინახოს
     flask_thread = threading.Thread(target=run_flask)
