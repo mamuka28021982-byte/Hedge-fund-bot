@@ -6,6 +6,7 @@ import yfinance as yf
 import pandas as pd
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
+from deep_translator import GoogleTranslator
 
 # ლოგირების კონფიგურაცია
 logging.basicConfig(
@@ -80,6 +81,15 @@ def get_stock_news(ticker):
                 link = latest['link']
             elif 'content' in latest and 'clickThroughUrl' in latest['content']:
                 link = latest['content']['clickThroughUrl'].get('url', '')
+            
+            # ავტომატურად ვთარგმნით სათაურს ქართულად
+            try:
+                translated_title = GoogleTranslator(source='en', target='ka').translate(title)
+                if translated_title:
+                    title = translated_title
+            except Exception as trans_err:
+                logger.error(f"Translation error: {trans_err}")
+
             return {"title": title, "link": link}
     except Exception as e:
         logger.error(f"Error fetching news for {ticker}: {e}")
@@ -91,7 +101,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🏛 **Mamuka AI Hedge Fund Bot აქტიურია!**\n\n"
             "ბრძანებები:\n"
             "• `/analyze` - სრული საბაზრო ანალიტიკა\n"
-            "• `/news` - უახლესი საბაზრო სიახლეები\n"
+            "• `/news` - უახლესი საბაზრო სიახლეები (ქართულად)\n"
             "• `/status` - სისტემის შემოწმება"
         )
     except Exception as e:
@@ -144,10 +154,10 @@ async def analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def news(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        await update.message.reply_text("⏳ მიმდინარეობს უახლესი საბაზრო სიახლეების ძებნა...")
+        await update.message.reply_text("⏳ ვეძებ და ვთარგმნი უახლეს სიახლეებს ქართულად...")
         
         key_tickers = ["NVDA", "PLTR", "IBM", "MSFT", "RKLB"]
-        text = "📰 **KEY MARKET & TECH NEWS**\n----------------------------------"
+        text = "📰 **მნიშვნელოვანი საბაზრო და ტექნოლოგიური სიახლეები**\n----------------------------------"
         
         for ticker in key_tickers:
             news_item = get_stock_news(ticker)
@@ -161,7 +171,7 @@ async def news(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
     except Exception as e:
         logger.error(f"News error: {e}")
-        await update.message.reply_text(f"⚠️ შეცდომა სიახლეების წამოღების დროს: {str(e)}")
+        await update.message.reply_text(f"⚠️ შეცდომა სიახლეების თარგმნის დროს: {str(e)}")
 
 # ვქმნით პატარა Flask სერვერს Render-ისთვის
 app_web = Flask(__name__)
