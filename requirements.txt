@@ -1,4 +1,5 @@
-pyTelegramBotAPI
 yfinance
+python-telegram-bot
+requests
 pandas
 numpy
