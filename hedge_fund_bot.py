@@ -1,5 +1,7 @@
 import os
 import logging
+import threading
+from flask import Flask
 import yfinance as yf
 import pandas as pd
 from telegram import Update
@@ -122,14 +124,30 @@ async def analyze(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Analyze error: {e}")
         await update.message.reply_text(f"⚠️ შეცდომა ანალიზის დროს: {str(e)}")
 
+# ვქმნით პატარა Flask სერვერს Render-ისთვის
+app_web = Flask(__name__)
+
+@app_web.route("/")
+def home():
+    return "Bot is running and active!"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 10000))
+    app_web.run(host="0.0.0.0", port=port)
+
 if __name__ == "__main__":
     if not TELEGRAM_TOKEN:
         print("ERROR: TELEGRAM_TOKEN is missing!")
-    app = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
+        
+    application = ApplicationBuilder().token(TELEGRAM_TOKEN).build()
     
-    app.add_handler(CommandHandler("start", start))
-    app.add_handler(CommandHandler("status", status))
-    app.add_handler(CommandHandler("analyze", analyze))
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("status", status))
+    application.add_handler(CommandHandler("analyze", analyze))
+    
+    # ვრთავთ Flask სერვერს ცალკე ნაკადში, რომ Render-მა პორტი დაინახოს
+    flask_thread = threading.Thread(target=run_flask)
+    flask_thread.start()
     
     print("Bot is running...")
-    app.run_polling()
+    application.run_polling()
